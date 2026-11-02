@@ -83,7 +83,8 @@ Secrets are never handled by the script. Finish these yourself:
 - `gcloud auth login` and `gcloud auth application-default login`, if you use GCP
 - `az login` (or `azl`), if you use Azure
 - A SOPS age key in `~/.config/sops/age/keys.txt` (`chmod 600`), only if you
-  decrypt sops files. `age-keygen -o ~/.config/sops/age/keys.txt` makes one.
+  decrypt sops files. sops reads age keys by itself; to make one of your own,
+  `brew install age`, then `age-keygen -o ~/.config/sops/age/keys.txt`.
 - `exec zsh`, then `make verify`
 
 ## Your identity, and pushing over SSH

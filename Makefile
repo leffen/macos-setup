@@ -54,7 +54,7 @@ brew-install: ## CHANGES THE MACHINE: install everything in the Brewfile
 
 verify: ## Is this machine set up correctly? (read-only)
 	@fail=0; \
-	for c in brew git gh kubectl sops age go node python3 rustc; do \
+	for c in brew git gh kubectl sops go node python3 rustc; do \
 		if command -v $$c >/dev/null 2>&1; then printf '  \033[32m✓\033[0m %s\n' "$$c"; \
 		else printf '  \033[31m✗\033[0m %s missing\n' "$$c"; fail=1; fi; \
 	done; \
