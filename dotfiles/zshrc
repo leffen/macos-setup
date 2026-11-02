@@ -1,0 +1,188 @@
+# ~/.zshrc — managed by macos-setup
+# Interactive shell config. Aliases, functions and the prompt live in
+# ~/.config/zsh/{aliases,prompt}.zsh and are sourced at the bottom.
+#
+# Startup budget: keep `time zsh -i -c exit` well under half a second.
+# To profile, put `zmodload zsh/zprof` first in this file and `zprof` last.
+# The usual suspects are anything that forks or evals a tool's init script.
+
+# ── Environment ───────────────────────────────────────────────
+export EDITOR='nano'
+export LSCOLORS="ExGxBxDxCxEgEdxbxgxcxd"
+export SSH_KEY_PATH="$HOME/.ssh/rsa_id"
+export DOTNET_CLI_TELEMETRY_OPTOUT=1
+export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"
+
+export GOPATH="$HOME/go"
+export GOPROXY="https://proxy.golang.org,direct"
+# export GOPRIVATE="github.com/your-org/*"   # private Go modules, if you have any
+
+export PYENV_ROOT="$HOME/.pyenv"
+export NVM_DIR="$HOME/.nvm"
+export PNPM_HOME="$HOME/Library/pnpm"
+export BUN_INSTALL="$HOME/.bun"
+
+# History. omz's lib/history.zsh only raises these, never lowers them.
+HISTFILE="$HOME/.history"
+HISTSIZE=100000
+SAVEHIST=$HISTSIZE
+
+# ── Homebrew (arch-aware) ─────────────────────────────────────
+# A login shell already ran this in ~/.zprofile; a non-login one (an IDE
+# terminal, `zsh -i`) inherits HOMEBREW_PREFIX. So re-run shellenv only when
+# needed, but always restore fpath — without it compinit misses every
+# completion brew installed.
+#
+# shellenv also EXPORTS FPATH, so a shell started from another shell (tmux, an
+# editor terminal) inherits the parent's fpath with every oh-my-zsh directory
+# already on it. That fpath differs from a fresh tab's, and oh-my-zsh deletes
+# and rebuilds the completion dump whenever the fpath recorded in it does not
+# match. So drop the inherited oh-my-zsh entries and stop exporting it.
+if [[ -z $HOMEBREW_PREFIX ]]; then
+  if   [[ -x /opt/homebrew/bin/brew ]]; then eval "$(/opt/homebrew/bin/brew shellenv)"
+  elif [[ -x /usr/local/bin/brew ]];    then eval "$(/usr/local/bin/brew shellenv)"
+  fi
+fi
+: ${HOMEBREW_PREFIX:=/opt/homebrew}
+typeset -U path fpath     # keep the first copy of each entry, drop the rest
+fpath=(${fpath:#$HOME/.oh-my-zsh/*})
+typeset +x FPATH
+fpath=($HOMEBREW_PREFIX/share/zsh/site-functions(N/) $BUN_INSTALL(N/) $fpath)
+
+# ── Python / pyenv ────────────────────────────────────────────
+# Before the PATH block on purpose: init prepends the shims, and the block
+# below must still be able to put ~/.local/bin (uv) and friends ahead of them.
+# --no-rehash skips rebuilding every shim on every shell start (~400 ms);
+# `pyenv install` and pyenv's pip hook rehash when something actually changes.
+path=($PYENV_ROOT/bin(N/) $path)
+(( $+commands[pyenv] )) && eval "$(pyenv init - --no-rehash zsh)"
+
+# ── Node / nvm (lazy) ─────────────────────────────────────────
+# Sourcing nvm.sh costs ~500 ms a shell, nearly all of it resolving the
+# `default` alias. Instead, resolve it once, cache the answer, and put that
+# version's bin/ on PATH directly. The cache is rebuilt when the default
+# alias changes or a version is installed or removed. nvm itself — and its
+# completion — loads on first use of the `nvm` command.
+if [[ -s $NVM_DIR/nvm.sh ]]; then
+  () {
+    local cache=${XDG_CACHE_HOME:-$HOME/.cache}/zsh/nvm-default ver
+    if [[ ! -s $cache || $NVM_DIR/alias/default -nt $cache \
+          || $NVM_DIR/versions/node -nt $cache ]]; then
+      source $NVM_DIR/nvm.sh --no-use
+      mkdir -p ${cache:h} && nvm version default >| $cache 2>/dev/null
+    fi
+    ver=$(<$cache)
+    if [[ -d $NVM_DIR/versions/node/$ver/bin ]]; then
+      export NVM_BIN=$NVM_DIR/versions/node/$ver/bin
+      export NVM_INC=$NVM_DIR/versions/node/$ver/include/node
+      path=($NVM_BIN $path)
+    fi
+  }
+  nvm() {
+    unfunction nvm
+    source $NVM_DIR/nvm.sh --no-use
+    [[ -s $NVM_DIR/bash_completion ]] && source $NVM_DIR/bash_completion
+    nvm "$@"
+  }
+fi
+
+# ── PATH ──────────────────────────────────────────────────────
+# First match wins, so this reads top-down as precedence. (N/) drops an entry
+# whose directory does not exist, so nothing here needs its own guard.
+#
+# gnubin: Homebrew installs GNU Make 4.x as `gmake` so it does not shadow
+# macOS's /usr/bin/make — still 3.81, from 2006, predating most of what modern
+# Makefiles assume. This puts 4.x first under its real name.
+#
+# Go: no GOROOT on purpose — the go binary derives it from its own location.
+# Pinning it broke every build when Homebrew moved go to 1.27.1 while it still
+# pointed at a 1.27.0 tarball install: the new driver ran the old compiler.
+#
+# gcloud: its path.zsh.inc is not sourced because it does a scalar
+# `export PATH=...:$PATH`, which bypasses `typeset -U` and re-adds a
+# duplicate in every nested shell. The SDK lives in ~/tools (steps/05).
+path=(
+  $HOME/tools/google-cloud-sdk/bin(N/)
+  ${KREW_ROOT:-$HOME/.krew}/bin(N/)
+  $HOME/.local/bin                               # uv and friends
+  $BUN_INSTALL/bin(N/)
+  $PNPM_HOME/bin(N/)                             # newer pnpm (12.x)
+  $PNPM_HOME
+  $HOMEBREW_PREFIX/opt/make/libexec/gnubin(N/)
+  /usr/local/sbin(N/)
+  $path
+  $GOPATH/bin
+  $HOME/tools
+)
+
+# ── .NET SDK ──────────────────────────────────────────────────
+# Homebrew installs the SDK under $HOMEBREW_PREFIX/opt/dotnet. DOTNET_ROOT
+# lets tooling that shells out to the SDK find it (the `dotnet` binary
+# itself is already on PATH via brew).
+[[ -d $HOMEBREW_PREFIX/opt/dotnet/libexec ]] && \
+  export DOTNET_ROOT="$HOMEBREW_PREFIX/opt/dotnet/libexec"
+
+# ── oh-my-zsh ─────────────────────────────────────────────────
+export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME="bira"   # prompt.zsh replaces its PROMPT; RPROMPT and colours stay
+
+# - zsh-syntax-highlighting must come last — it wraps the line editor and
+#   anything loaded after it is not highlighted. Both it and
+#   zsh-autosuggestions are cloned by steps/03; the entries are inert if the
+#   clone did not happen.
+# - `gh`, not `github`: the latter is deprecated and only served the legacy
+#   hub CLI. gh's completion is regenerated in a background job, so it costs
+#   nothing at startup.
+# - No `git-prompt`: nothing reads its git_super_status, yet it ran a python
+#   script before every prompt, every command and every cd. The branch shown
+#   in the prompt is git_prompt_info from omz's lib/git.zsh.
+plugins=(git gh golang npm brew macos kubectl kube-ps1
+         zsh-autosuggestions zsh-syntax-highlighting)
+
+# Make git_prompt_info synchronous.
+#
+# Recent oh-my-zsh computes the git segment in the background: git_prompt_info
+# becomes a stub that echoes a cached value, and the refresh is wired up when
+# oh-my-zsh LOADS, by inspecting $PROMPT for the call.
+#
+# ~/.config/zsh/prompt.zsh sets PROMPT at the bottom of this file -- after that
+# inspection has already happened. So nothing ever requests the refresh, the
+# cache stays empty, and $(git_prompt_info) expands to nothing on every prompt.
+# The failure is silent and total: no error, no branch, just a prompt that looks
+# like the one from a machine that has no git.
+#
+# Setting this before oh-my-zsh loads keeps the old synchronous path, which
+# costs one git call per prompt and is what the prompt was written against.
+zstyle ':omz:alpha:lib:git' async-prompt no
+
+source "$ZSH/oh-my-zsh.sh"
+
+# ── After oh-my-zsh (these need compinit) ─────────────────────
+zstyle ':completion:*' menu select
+
+# zoxide — `z proj` jumps to the most-used match, `zi` picks interactively.
+# Supersedes rupa/z, which steps/05 no longer installs.
+(( $+commands[zoxide] )) && eval "$(zoxide init zsh)"
+
+# fzf — ctrl-r history, ctrl-t files, alt-c cd.
+(( $+commands[fzf] )) && source <(fzf --zsh)
+
+# Kubernetes — the `k` alias and kubectl completion come from the omz kubectl
+# plugin. kubecolor passes output through untouched when piped, so aliasing
+# kubectl to it does not break scripts that parse the output. The compdef
+# keeps tab completion working through the alias.
+if (( $+commands[kubecolor] )); then
+  alias kubectl=kubecolor
+  compdef kubecolor=kubectl
+fi
+
+# Google Cloud SDK completion (its bin/ is in the PATH block above).
+[[ -f $HOME/tools/google-cloud-sdk/completion.zsh.inc ]] && \
+  source $HOME/tools/google-cloud-sdk/completion.zsh.inc
+
+# bun completion is autoloaded from fpath (see the Homebrew section), so
+# ~/.bun/_bun is no longer sourced here — it used to be sourced twice.
+
+# ── Aliases, functions & prompt ───────────────────────────────
+[[ -s $HOME/.config/zsh/aliases.zsh ]] && source $HOME/.config/zsh/aliases.zsh
+[[ -s $HOME/.config/zsh/prompt.zsh ]]  && source $HOME/.config/zsh/prompt.zsh

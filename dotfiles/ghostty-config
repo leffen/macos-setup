@@ -1,0 +1,120 @@
+# ~/.config/ghostty/config — managed by macos-setup
+#
+#   Every option + its default:  ghostty +show-config --default --docs
+#   Browse bundled themes:       ghostty +list-themes
+#   Reload after editing:        cmd+shift+, (or just restart Ghostty)
+#
+# Reference: https://ghostty.org/docs/config
+
+# --- Exit behaviour --------------------------------------------------
+# Never prompt for confirmation when closing a tab, split, or window.
+confirm-close-surface = false
+
+# Stay alive in the dock after the last window closes (standard macOS
+# behaviour). Set to true if you'd rather Ghostty fully quit instead.
+quit-after-last-window-closed = false
+
+# --- Font ------------------------------------------------------------
+# Geist Mono comes from the Brewfile (cask "font-geist-mono"). If that cask
+# has not been applied, Ghostty falls back to its bundled JetBrains Mono
+# silently — so a missing font looks like "the config did not take".
+font-family = "Geist Mono"
+# Ligatures off: -calt disables contextual alternates, -liga and -dlig the
+# standard and discretionary ligatures. In a terminal they turn != and ->
+# into glyphs that no longer line up with the column they occupy.
+font-feature = -calt
+font-feature = -liga
+font-feature = -dlig
+# This machine ran at 13 until the repo config replaced a hand-written one on
+# 6 Sep 2026 and set 14; the jump was noticed and reverted. Stated explicitly
+# rather than left to Ghostty's default, so it cannot drift again.
+font-size = 13
+adjust-cell-height = 10%
+
+# --- Theme -----------------------------------------------------------
+# Run `ghostty +list-themes` to browse. The dark:/light: form follows the
+# macOS appearance if you ever want it to switch automatically.
+theme = vesper
+
+# --- Window ----------------------------------------------------------
+window-padding-x = 10
+window-padding-y = 8
+# Start with a single fresh window instead of restoring every window, tab and
+# split from the last session. `never` also overrides the macOS-wide "Close
+# windows when quitting an application" setting, which `default` defers to --
+# so the behaviour does not change if that system toggle is flipped.
+# `initial-window = true` is the default, stated so the one window is explicit.
+window-save-state = never
+initial-window = true
+window-inherit-working-directory = true
+window-colorspace = display-p3
+# `tabs` is a titlebar Ghostty draws entirely itself, placing the tab strip
+# inside it at a fixed offset from the traffic lights. macOS 27 moved that
+# geometry, so the tabs land on top of the window buttons. Upstream documents
+# this style as tested on macOS 14 only -- "any other macOS version has not
+# been tested" -- and 1.3.1 is the current stable, so there is no release to
+# upgrade into. `transparent` is Ghostty's own default and uses the NATIVE
+# titlebar: AppKit places the tabs, so they cannot collide with the buttons,
+# while the window background still shows through for the seamless look that
+# `tabs` was set for. Do not set this back to `tabs` without checking the
+# macOS version first.
+macos-titlebar-style = transparent
+background-opacity = 1.0
+unfocused-split-opacity = 0.9
+
+# --- Cursor / mouse --------------------------------------------------
+cursor-style = block
+cursor-style-blink = false
+mouse-hide-while-typing = true
+
+# --- Scrollback ------------------------------------------------------
+# Ghostty counts scrollback in BYTES, not lines, and the key is
+# `scrollback-limit` -- there is no `scrollback-limit-lines`. The old spelling
+# was not silently ignored: Ghostty rejects unknown keys, so it errored.
+#
+# The other configs ask for 100 000 LINES, which cannot be expressed here and
+# does not convert cleanly -- a wide line costs far more memory than a short
+# one, so any line-to-byte figure would be a guess. 100 MB is simply generous;
+# scrollback is allocated lazily, so this is a ceiling and not an upfront cost.
+scrollback-limit = 100000000
+
+# --- Shell integration -----------------------------------------------
+# Enables cursor shaping, correct window titles, sudo password prompts
+# that Ghostty understands, and working-directory inheritance.
+shell-integration = zsh
+shell-integration-features = cursor,sudo,title,path
+
+# --- Clipboard / links -----------------------------------------------
+copy-on-select = clipboard
+clipboard-trim-trailing-spaces = true
+link-url = true
+
+# --- macOS keyboard --------------------------------------------------
+# Make Option behave as Alt so readline word-motions (opt+left/right,
+# opt+backspace) work, instead of inserting accented characters.
+# Norwegian layout: Option composes | @ \ { } [ ] $ -- Option-7 is the pipe.
+# Option is NOT remapped to Meta here. The trade is real but one-sided on this
+# machine: Meta buys Alt-b/Alt-f word motion, and there is not a single bindkey
+# line in the zsh config, while losing composition costs characters needed in
+# every shell command. When it was on, the symptom was not "a setting is wrong"
+# but "the pipe key stopped working", which is far harder to trace back.
+macos-option-as-alt = false
+
+# --- Keybinds --------------------------------------------------------
+# shift+cmd+m, while Ghostty is the active app: a new window with a short pane
+# below the main one.
+#
+# Deliberately NOT `global:`. A global keybind implies `all:`, which sends every
+# surface-specific action to EVERY terminal: on 2 Nov the global version
+# opened one window (new_window is app-wide) but ran new_split and
+# resize_split in every pane of every open window. A global binding of this
+# chain cannot be made safe; reaching it from other apps needs a hotkey tool
+# driving Ghostty's AppleScript instead.
+#
+# The chain runs in order: the split starts at 50/50 with focus in the new
+# lower pane, and resize_split then moves the divider down. The amount is in
+# pixels, not a ratio, so the lower pane's share depends on the window height;
+# tune the number, not the direction.
+keybind = shift+cmd+m=new_window
+keybind = chain=new_split:down
+keybind = chain=resize_split:down,300

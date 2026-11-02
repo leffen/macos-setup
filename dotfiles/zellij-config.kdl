@@ -1,0 +1,46 @@
+// ~/.config/zellij/config.kdl — managed by macos-setup
+//
+// The third answer to "keep my shells alive", alongside tmux and WezTerm's mux
+// domain. Kept so the three can be compared on the same machine with the same
+// palette rather than argued about.
+//
+// Zellij's pitch over tmux is that it is discoverable: the keybinding hints sit
+// at the bottom of the screen, so you do not have to have memorised a prefix
+// table before you can use it. That costs a line of screen, which is why
+// `pane_frames` is off below -- one source of chrome is enough.
+
+// Vesper, matching dotfiles/ghostty-config and the other terminal configs.
+themes {
+    vesper {
+        fg "#ffffff"
+        bg "#101010"
+        black "#101010"
+        red "#f5a191"
+        green "#90b99f"
+        yellow "#e6b99d"
+        blue "#aca1cf"
+        magenta "#e29eca"
+        cyan "#ea83a5"
+        white "#a0a0a0"
+        orange "#ffc799"
+    }
+}
+
+theme "vesper"
+
+// macOS clipboard. Without this, yanking in zellij's scrollback goes to a
+// buffer that nothing else on the machine can read.
+copy_command "pbcopy"
+copy_on_select true
+
+scroll_buffer_size 100000
+mouse_mode true
+
+// One set of borders is enough; the status bar already shows the layout.
+pane_frames false
+
+// Do not ask on exit -- matches ghostty's confirm-close-surface = false.
+on_force_close "quit"
+
+// Sessions outlive the terminal window, which is the whole point.
+session_serialization true

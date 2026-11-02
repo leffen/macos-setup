@@ -1,0 +1,8 @@
+# ~/.zshenv — managed by macos-setup
+# Loaded for every shell (login, interactive, scripts).
+
+# uv and other user-local binaries
+export PATH="$HOME/.local/bin:$PATH"
+
+# Rust toolchain
+[ -s "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"

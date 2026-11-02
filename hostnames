@@ -1,0 +1,12 @@
+# Which machine holds which host name. Tracked so that two machines
+# cannot end up with the same name -- see steps/11-hostname.sh.
+#
+# machine-id is sha256(hardware serial), first 12 chars. The serial
+# itself is deliberately not recorded.
+#
+# Retiring a machine? Delete its line. That frees the name.
+#
+# Using a fork of this repo for several machines? Commit this file after
+# `HOST_SHORT=<name> ./setup.sh`, so the next machine sees the name is taken.
+#
+# name             machine-id      claimed

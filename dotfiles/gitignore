@@ -1,0 +1,18 @@
+# Global gitignore — linked to ~/.gitignore, referenced by
+# `git config --global core.excludesfile` (set in dotfiles/gitconfig).
+#
+# For things that are personal to a machine rather than to a project, so they
+# do not have to be added to every repo's .gitignore.
+#
+# NOTE: a file git already tracks ignores this file completely. If something
+# here is still showing up in `git status`, it is tracked — `git rm --cached
+# <path>` first. Adding the pattern alone looks like it worked and changes
+# nothing.
+
+# Scratch pointer to a Claude Code session. Session-specific: the UUID goes
+# stale when the session ends and means nothing on another machine.
+resume.sh
+
+# Finder metadata. Written into any directory you so much as look at, belongs
+# to no project, and is the classic accidental commit.
+.DS_Store

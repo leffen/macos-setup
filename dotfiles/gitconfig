@@ -1,0 +1,82 @@
+# ~/.gitconfig — managed by macos-setup
+# Paths use ~ so this works on any machine / user.
+#
+# No identity lives here. Your name, email and signing key go in
+# ~/.gitconfig.local, which steps/18-git-signing-keys.sh writes and which is
+# not part of this repo, so this file can be shared as is.
+[include]
+    path = ~/.gitconfig.local
+[push]
+    default = simple
+    # Push a new branch without having to spell out -u origin <name>.
+    autoSetupRemote = true
+[fetch]
+    # Drop remote-tracking refs whose upstream branch is gone.
+    prune = true
+[core]
+    excludesfile = ~/.gitignore
+    editor = nano
+    ignorecase = false
+    # delta renders diffs; see the [delta] block below.
+    pager = delta
+[pull]
+    rebase = true
+[init]
+    defaultBranch = main
+[pager]
+    branch = false
+[interactive]
+    diffFilter = delta --color-only
+[delta]
+    navigate = true
+    line-numbers = true
+    side-by-side = true
+[merge]
+    # zdiff3 shows the common ancestor in a conflict, so you can see what each
+    # side actually changed rather than guessing from the two results.
+    conflictStyle = zdiff3
+[diff]
+    # Distinguish moved lines from added/removed ones.
+    colorMoved = default
+# Signing is on, but only takes effect once ~/.gitconfig.local names a key
+# (steps/18 does that). Until then, `git commit` fails with "no signing key"
+# rather than silently making unsigned commits; run `make keys` to fix it.
+[commit]
+    gpgsign = true
+[tag]
+    gpgsign = true
+[gpg]
+    format = ssh
+[gpg "ssh"]
+    allowedSignersFile = ~/.ssh/allowed_signers
+[credential]
+    helper = osxkeychain
+[diff "sopsdiffer"]
+    textconv = sops -d
+# Rewrite to SSH only for the orgs you actually push to, never for all of
+# github.com. A blanket https://github.com/ -> git@github.com: rule breaks every
+# tool that clones a *public* repo over HTTPS: the Brewfile taps, the zsh
+# plugin clones in steps/03, nvm. Worse than breaking, it hangs: ssh wants to
+# confirm github.com's host key, cannot reach the terminal from inside brew,
+# takes SIGTTIN and stops, and `brew bundle` sits there with no output.
+#
+# insteadOf is a literal, case-sensitive prefix match, so list every spelling
+# of the org that tools write (gh writes the canonical case):
+#
+# [url "git@github.com:your-org/"]
+#     insteadOf = https://github.com/your-org/
+#     insteadOf = https://github.com/Your-Org/
+[url "https://github.com/Homebrew/"]
+    # Keep Homebrew's own repos on HTTPS regardless of any rewrite above,
+    # including an SSH form back to HTTPS.
+    insteadOf = https://github.com/Homebrew/
+    insteadOf = http://github.com/Homebrew/
+    insteadOf = ssh://git@github.com/Homebrew/
+    insteadOf = git@github.com:Homebrew/
+# Let gh supply GitHub credentials for HTTPS remotes (after `gh auth login`).
+[credential "https://github.com"]
+    helper =
+    helper = !gh auth git-credential
+[credential "https://gist.github.com"]
+    helper =
+    helper = !gh auth git-credential

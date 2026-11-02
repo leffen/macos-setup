@@ -1,0 +1,61 @@
+# ~/.zprofile — managed by macos-setup
+# Loaded for login shells. Puts Homebrew on PATH (arch-aware) and makes sure
+# ssh-agent holds every key this machine uses.
+
+if [[ -x /opt/homebrew/bin/brew ]]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"      # Apple Silicon
+elif [[ -x /usr/local/bin/brew ]]; then
+  eval "$(/usr/local/bin/brew shellenv)"         # Intel
+fi
+
+# ── Refill ssh-agent from the login keychain ──────────────────
+#
+# macOS starts an agent for you but it is EMPTY at every login, and
+# `UseKeychain yes` does not change that: it only *reads* a saved passphrase
+# when ssh(1) asks for one. Two things therefore have to happen here.
+#
+# 1. `ssh-add --apple-load-keychain` puts back every key whose passphrase
+#    steps/20-ssh-agent.sh stored in the login keychain.
+# 2. Passphrase-LESS keys are added by hand. --apple-load-keychain cannot
+#    restore them — there is no passphrase for it to look up — so without this
+#    they never enter the agent at all and every use needs an explicit `-i`.
+#
+# Why the agent and not just ~/.ssh/config: commit signing never runs ssh(1).
+# git shells out to `ssh-keygen -Y sign`, which does not read ssh_config and
+# can only reach a key through the agent.
+#
+# Deliberately here rather than in a LaunchAgent: a LaunchAgent runs only at
+# login, so an agent restart mid-session would leave
+# signing broken until the next one. This recovers in the next new terminal.
+#
+# The manifest is written by steps/20-ssh-agent.sh — one key per line,
+# tab-separated: <fingerprint> <nopass|keychain> <path>. It exists so this
+# runs at login speed: the steady-state check is one `ssh-add -l` and a
+# substring test per key, with no forks and no disk reads.
+_ssh_manifest="$HOME/.ssh/agent-keys"
+if [[ -r "$_ssh_manifest" ]]; then
+  _agent_fps="$(ssh-add -l 2>/dev/null)"
+  _ssh_missing=0
+  while IFS=$'\t' read -r _fp _mode _path; do
+    [[ -n "$_fp" && "$_fp" != \#* ]] || continue
+    if [[ "$_agent_fps" != *"$_fp"* ]]; then _ssh_missing=1; break; fi
+  done < "$_ssh_manifest"
+
+  if (( _ssh_missing )); then
+    ssh-add --apple-load-keychain >/dev/null 2>&1
+    _agent_fps="$(ssh-add -l 2>/dev/null)"
+    while IFS=$'\t' read -r _fp _mode _path; do
+      [[ "$_mode" == nopass && -r "$_path" ]] || continue
+      [[ "$_agent_fps" == *"$_fp"* ]] && continue
+      # SSH_ASKPASS_REQUIRE=never so a key that turns out to be protected
+      # after all fails fast instead of blocking the login shell on a prompt.
+      SSH_ASKPASS_REQUIRE=never ssh-add -q "$_path" >/dev/null 2>&1
+    done < "$_ssh_manifest"
+  fi
+  unset _ssh_manifest _agent_fps _ssh_missing _fp _mode _path
+else
+  # No manifest yet (setup.sh has not run on this machine since the manifest
+  # was introduced). Do the one thing that is safe without it.
+  ssh-add --apple-load-keychain >/dev/null 2>&1
+  unset _ssh_manifest
+fi
