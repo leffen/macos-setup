@@ -12,6 +12,7 @@ tap "terraform-linters/tap"
 # ── Core CLI ──────────────────────────────────────────────────
 brew "git"
 brew "git-filter-repo"
+brew "git-lfs"            # large files in git
 brew "make"                # GNU Make 4.x; macOS ships 3.81 (2006)
 brew "gh"
 brew "tea"                 # Gitea CLI
@@ -184,11 +185,15 @@ brew "dockutil"           # steps/17-dock.sh puts the terminals in the Dock;
 # ── Casks ─────────────────────────────────────────────────────
 cask "codex"
 cask "ghostty"
-cask "font-geist-mono"   # font-family in dotfiles/ghostty-config
+cask "font-geist-mono"   # font-family in dotfiles/ghostty-config; ships static
+                         # OTFs and the variable TTF, steps/27 drops the OTFs
 cask "iterm2"
 
 # ── Editors & AI tooling ──────────────────────────────────────
-cask "claude-code"
+# Claude Code is NOT a cask here: steps/15-claude-code.sh runs Anthropic's
+# native installer instead. With both, Claude Code still installs its own
+# self-updating copy into ~/.local/bin, which wins on PATH, and the cask sits
+# a few releases behind unused. Found that way on 2 Nov 2026.
 cask "claude"
 cask "vscodium"
 cask "antigravity"
