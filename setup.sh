@@ -34,6 +34,34 @@ else
   exit 1
 fi
 
+# ── Preflight: sudo, once, up front ───────────────────────────
+# steps/01 runs the Homebrew installer with NONINTERACTIVE=1, and in that mode
+# it never prompts: it tries `sudo -n`, and with no cached credential it stops
+# with "Insufficient permissions to install Homebrew to /opt/homebrew" -- which
+# reads like a non-admin account even when the user IS an admin. That was the
+# first thing a fresh Mac hit on 10 Nov 2026.
+#
+# So ask once here, at a terminal, and keep the timestamp fresh in the
+# background: brew bundle alone outlasts sudo's 5-minute default, and several
+# later steps (Go, apple/container, host name, power, ssh) need it too.
+if [[ "$(id -u)" -ne 0 ]] && ! sudo -n true 2>/dev/null; then
+  if [[ -t 0 ]]; then
+    log "Several steps need sudo -- asking once, now:"
+    sudo -v || { err "sudo failed; cannot continue"; exit 1; }
+  else
+    err "no cached sudo credential and no terminal to ask at."
+    err "    Run ./setup.sh from a terminal, or run 'sudo -v' first."
+    exit 1
+  fi
+fi
+if [[ "$(id -u)" -ne 0 ]]; then
+  # Exits by itself when setup.sh does (kill -0 on our pid), and the trap
+  # covers the normal path.
+  ( while kill -0 "$$" 2>/dev/null; do sudo -n true 2>/dev/null; sleep 50; done ) &
+  _sudo_keepalive=$!
+  trap 'kill "$_sudo_keepalive" 2>/dev/null || true' EXIT
+fi
+
 for step in "$SCRIPT_DIR"/steps/*.sh; do
   log "Running $(basename "$step")"
   # shellcheck disable=SC1090
